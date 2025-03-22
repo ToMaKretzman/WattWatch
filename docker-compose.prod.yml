@@ -7,7 +7,7 @@ services:
     container_name: wattwatch-db
     image: influxdb:2.7
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     volumes:
       - influxdb-data:/var/lib/influxdb2
       - ./backup:/backup
@@ -42,7 +42,7 @@ services:
     container_name: wattwatch-frontend
     image: ghcr.io/tomakretzman/wattwatch:latest
     ports:
-      - "27654:80"
+      - "0.0.0.0:27654:80"
     environment:
       - VITE_INFLUXDB_URL=http://wattwatch-db:8086
       - VITE_INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
