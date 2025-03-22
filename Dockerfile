@@ -6,15 +6,14 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies including TypeScript
-RUN npm install
-RUN npm install -g typescript
+# Install dependencies
+RUN npm ci
 
 # Copy source files
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN npx tsc && npx vite build
 
 # Production stage
 FROM nginx:alpine
