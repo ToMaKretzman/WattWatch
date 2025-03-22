@@ -42,7 +42,7 @@ services:
     container_name: wattwatch-frontend
     image: ghcr.io/tomakretzman/wattwatch:latest
     ports:
-      - "0.0.0.0:27654:80"
+      - "27654:80"
     environment:
       - VITE_INFLUXDB_URL=http://wattwatch-db:8086
       - VITE_INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
