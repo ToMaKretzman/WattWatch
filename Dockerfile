@@ -13,7 +13,8 @@ RUN npm ci
 COPY . .
 
 # Build the application
-RUN npx tsc && npx vite build
+RUN node --experimental-modules node_modules/typescript/bin/tsc -p tsconfig.app.json
+RUN NODE_ENV=production node --experimental-modules node_modules/vite/bin/vite.js build
 
 # Production stage
 FROM nginx:alpine
