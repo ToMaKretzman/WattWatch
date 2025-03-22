@@ -1,0 +1,84 @@
+version: '3.8'
+
+name: wattwatch
+
+services:
+  wattwatch-db:
+    container_name: wattwatch-db
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - ./backup:/backup
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USER}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - wattwatch-net
+    labels:
+      - dockge.description=InfluxDB Zeitreihendatenbank für WattWatch
+      - dockge.icon=database
+      - dockge.service.port.8086=InfluxDB API
+
+  wattwatch-frontend:
+    container_name: wattwatch-frontend
+    image: ghcr.io/${GITHUB_REPOSITORY}:latest
+    ports:
+      - "8080:80"
+    environment:
+      - VITE_INFLUXDB_URL=http://localhost:8080/influxdb
+      - VITE_INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - VITE_INFLUXDB_ORG=${INFLUXDB_ORG}
+      - VITE_INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
+      - NODE_ENV=production
+    depends_on:
+      - wattwatch-db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - wattwatch-net
+    labels:
+      - dockge.description=WattWatch Frontend Anwendung
+      - dockge.icon=monitor
+      - dockge.service.port.80=Web Interface
+      - dockge.auth.ghcr.io.username=${GITHUB_USERNAME}
+      - dockge.auth.ghcr.io.password=${GITHUB_PAT}
+
+networks:
+  wattwatch-net:
+    name: wattwatch-net
+    driver: bridge
+
+volumes:
+  influxdb-data:
+    name: wattwatch-influxdb-data
+    driver: local 
