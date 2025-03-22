@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  influxdb:
+  wattwatch-db:
     image: influxdb:2.7
     ports:
       - "8086:8086"
@@ -45,7 +45,7 @@ services:
       - VITE_INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
       - NODE_ENV=development
     depends_on:
-      - influxdb
+      - wattwatch-db
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
