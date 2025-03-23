@@ -17,11 +17,5 @@ export default defineConfig({
     assetsDir: 'assets',
     emptyOutDir: true
   },
-  define: {
-    'process.env.VITE_INFLUXDB_URL': JSON.stringify(process.env.VITE_INFLUXDB_URL),
-    'process.env.VITE_INFLUXDB_TOKEN': JSON.stringify(process.env.VITE_INFLUXDB_TOKEN),
-    'process.env.VITE_INFLUXDB_ORG': JSON.stringify(process.env.VITE_INFLUXDB_ORG),
-    'process.env.VITE_INFLUXDB_BUCKET': JSON.stringify(process.env.VITE_INFLUXDB_BUCKET),
-    'process.env.VITE_OPENAI_API_KEY': JSON.stringify(process.env.VITE_OPENAI_API_KEY)
-  }
+  envPrefix: 'VITE_'
 })
