@@ -25,6 +25,7 @@ ENV VITE_INFLUXDB_TOKEN=${VITE_INFLUXDB_TOKEN}
 ENV VITE_INFLUXDB_ORG=${VITE_INFLUXDB_ORG}
 ENV VITE_INFLUXDB_BUCKET=${VITE_INFLUXDB_BUCKET}
 ENV VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
+ENV NODE_ENV=production
 
 # Build the application
 RUN node --experimental-modules node_modules/typescript/bin/tsc -p tsconfig.app.json
