@@ -1,6 +1,6 @@
 import { Point, InfluxDB } from '@influxdata/influxdb-client';
 import type { OCRResult } from './openai';
-import { config } from './influxdbClient';
+import { getWriteApi, getQueryApi, getConfig } from './influxdbClient';
 
 // In Docker wird die URL relativ zum nginx-Proxy sein
 const url = '/influxdb';
@@ -42,6 +42,7 @@ interface QueryResult {
 
 export async function saveUtilityPrice(price: UtilityPrice): Promise<void> {
   try {
+    const writeApi = getWriteApi();
     const point = new Point('utility_price')
       .tag('type', price.type)
       .floatField('base_price', price.basePrice)
@@ -59,6 +60,8 @@ export async function saveUtilityPrice(price: UtilityPrice): Promise<void> {
 
 export async function getLatestUtilityPrice(type: UtilityType): Promise<UtilityPrice | null> {
   try {
+    const queryApi = getQueryApi();
+    const config = getConfig();
     const query = `from(bucket: "${config.bucket}")
       |> range(start: -1y)
       |> filter(fn: (r) => r._measurement == "utility_price")
@@ -95,6 +98,7 @@ export interface ElectricityPrice {
 
 export async function saveElectricityPrice(price: ElectricityPrice): Promise<void> {
   try {
+    const writeApi = getWriteApi();
     const point = new Point('electricity_price')
       .floatField('base_price', price.basePrice)
       .floatField('work_price', price.workPrice)
@@ -111,16 +115,17 @@ export async function saveElectricityPrice(price: ElectricityPrice): Promise<voi
 }
 
 export async function getLatestElectricityPrice(): Promise<ElectricityPrice | null> {
-  const queryApi = client.getQueryApi(config.org);
-  const query = `
-    from(bucket: "${config.bucket}")
-      |> range(start: -365d)
-      |> filter(fn: (r) => r["_measurement"] == "electricity_price")
-      |> last()
-      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
-  `;
-
   try {
+    const queryApi = getQueryApi();
+    const config = getConfig();
+    const query = `
+      from(bucket: "${config.bucket}")
+        |> range(start: -365d)
+        |> filter(fn: (r) => r["_measurement"] == "electricity_price")
+        |> last()
+        |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+    `;
+
     const result = await queryApi.collectRows<any>(query);
     if (result.length > 0) {
       return {
@@ -139,9 +144,12 @@ export async function getLatestElectricityPrice(): Promise<ElectricityPrice | nu
 
 export async function saveReading(result: OCRResult): Promise<void> {
   try {
+    const writeApi = getWriteApi();
+    const config = getConfig();
+
     console.log('Versuche Daten in InfluxDB zu speichern:', {
-      url,
-      token: token ? 'Vorhanden' : 'Fehlt',
+      url: config.url,
+      tokenVorhanden: !!config.token,
       org: config.org,
       bucket: config.bucket
     });
@@ -195,17 +203,18 @@ interface ReadingResult {
 }
 
 export async function getLatestReading(): Promise<ReadingResult | null> {
-  const queryApi = client.getQueryApi(config.org);
-  const query = `
-    from(bucket: "${config.bucket}")
-      |> range(start: -365d)
-      |> filter(fn: (r) => r["_measurement"] == "meter_reading")
-      |> filter(fn: (r) => r["_field"] == "value" or r["_field"] == "meter_number" or r["_field"] == "unit" or r["_field"] == "confidence")
-      |> last()
-      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
-  `;
-
   try {
+    const queryApi = getQueryApi();
+    const config = getConfig();
+    const query = `
+      from(bucket: "${config.bucket}")
+        |> range(start: -365d)
+        |> filter(fn: (r) => r["_measurement"] == "meter_reading")
+        |> filter(fn: (r) => r["_field"] == "value" or r["_field"] == "meter_number" or r["_field"] == "unit" or r["_field"] == "confidence")
+        |> last()
+        |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+    `;
+
     const result = await queryApi.collectRows<ReadingResult>(query);
     console.log('Letzte Messung:', result);
     if (result.length > 0) {
@@ -226,6 +235,6 @@ export async function getLatestReading(): Promise<ReadingResult | null> {
     return null;
   } catch (error) {
     console.error('Fehler beim Abrufen des letzten Zählerstands:', error);
-    throw error; // Fehler weiterwerfen statt null zurückzugeben
+    throw error;
   }
 } 

@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { Box, AppBar, Toolbar, Typography, Container, Tab, Tabs } from '@mui/material';
 import { ElectricMeter as MeterIcon } from '@mui/icons-material';
 import MeterReading from './components/OCR/MeterReading';
 import UtilityPriceInput from './components/UtilityPriceInput';
+import { initializeClient } from './services/influxdbClient';
+import './App.css';
+import { OCRResult } from './services/openai';
+import { getLatestReading } from './services/influxdb';
+import { MeterReadingForm } from './components/MeterReadingForm';
+import { ReadingDisplay } from './components/ReadingDisplay';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Erstelle ein dunkleres Theme
 const theme = createTheme({
@@ -82,10 +89,46 @@ function a11yProps(index: number) {
 
 function App() {
   const [value, setValue] = React.useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [latestReading, setLatestReading] = useState<OCRResult | null>(null);
 
   const handleChange = (_: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
   };
+
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await initializeClient();
+        const reading = await getLatestReading();
+        if (reading) {
+          setLatestReading({
+            current_reading: { value: reading.value.toString(), confidence: reading.confidence },
+            meter_number: { value: reading.meter_number, confidence: 1 },
+            unit: { value: reading.unit, confidence: 1 },
+            tariff_info: { HT: { value: 'unknown', confidence: 0 }, NT: { value: 'unknown', confidence: 0 } },
+            additional_info: { value: 'unknown', confidence: 0 }
+          });
+        }
+      } catch (err) {
+        console.error('Fehler bei der Initialisierung:', err);
+        setError(err instanceof Error ? err.message : 'Unbekannter Fehler bei der Initialisierung');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initialize();
+  }, []);
+
+  if (loading) {
+    return <div>Lade...</div>;
+  }
+
+  if (error) {
+    return <div className="error">Fehler: {error}</div>;
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -113,7 +156,23 @@ function App() {
             </Tabs>
           </Box>
           <TabPanel value={value} index={0}>
-            <MeterReading />
+            <ErrorBoundary>
+              <div className="App">
+                <header className="App-header">
+                  <h1>WattWatch</h1>
+                  <p>Erfassen Sie Ihren Stromzählerstand</p>
+                </header>
+                <main>
+                  <MeterReadingForm />
+                  {latestReading && (
+                    <section className="latest-reading">
+                      <h2>Letzte Messung</h2>
+                      <ReadingDisplay reading={latestReading} />
+                    </section>
+                  )}
+                </main>
+              </div>
+            </ErrorBoundary>
           </TabPanel>
           <TabPanel value={value} index={1}>
             <UtilityPriceInput />

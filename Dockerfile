@@ -32,7 +32,21 @@ RUN NODE_ENV=production node --experimental-modules node_modules/vite/bin/vite.j
 
 # Production stage
 FROM nginx:alpine
+
+# Copy the startup script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Copy the built application
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"] 
+
+# Set environment variables
+ENV VITE_INFLUXDB_URL=http://wattwatch-db:8086 \
+    VITE_INFLUXDB_TOKEN="" \
+    VITE_INFLUXDB_ORG="" \
+    VITE_INFLUXDB_BUCKET="" \
+    VITE_OPENAI_API_KEY=""
+
+# Use the startup script as entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"] 

@@ -1,48 +1,48 @@
 import { InfluxDB } from '@influxdata/influxdb-client';
+import { loadConfig } from './config';
+import type { Config } from './config';
 
-// Definiere mögliche URLs für verschiedene Umgebungen
-const getInfluxDBUrl = () => {
-  const configuredUrl = import.meta.env.VITE_INFLUXDB_URL;
-  if (!configuredUrl) {
-    console.warn('Keine InfluxDB-URL konfiguriert, verwende Standard-URL');
-    return 'http://localhost:8086';
-  }
-  return configuredUrl;
-};
+let client: InfluxDB | null = null;
+let writeApi: any = null;
+let queryApi: any = null;
+let config: Config | null = null;
 
-const getInfluxDBConfig = () => {
-  const url = getInfluxDBUrl();
-  const token = import.meta.env.VITE_INFLUXDB_TOKEN;
-  const org = import.meta.env.VITE_INFLUXDB_ORG;
-  const bucket = import.meta.env.VITE_INFLUXDB_BUCKET;
+export async function initializeClient(): Promise<void> {
+    try {
+        config = await loadConfig();
+        
+        client = new InfluxDB({
+            url: config.influxdb.url,
+            token: config.influxdb.token
+        });
 
-  if (!token || !org || !bucket) {
-    console.error('Fehlende InfluxDB-Konfiguration:', {
-      tokenVorhanden: !!token,
-      org,
-      bucket
-    });
-    throw new Error('Unvollständige InfluxDB-Konfiguration');
-  }
+        writeApi = client.getWriteApi(config.influxdb.org, config.influxdb.bucket);
+        queryApi = client.getQueryApi(config.influxdb.org);
 
-  return { url, token, org, bucket };
-};
+        console.log('InfluxDB Client erfolgreich initialisiert');
+    } catch (error) {
+        console.error('Fehler bei der Initialisierung des InfluxDB Clients:', error);
+        throw error;
+    }
+}
 
-const config = getInfluxDBConfig();
+export function getWriteApi() {
+    if (!writeApi) {
+        throw new Error('InfluxDB Client wurde noch nicht initialisiert');
+    }
+    return writeApi;
+}
 
-console.log('InfluxDB Konfiguration:', {
-  url: config.url,
-  tokenVorhanden: !!config.token,
-  org: config.org,
-  bucket: config.bucket
-});
+export function getQueryApi() {
+    if (!queryApi) {
+        throw new Error('InfluxDB Client wurde noch nicht initialisiert');
+    }
+    return queryApi;
+}
 
-const client = new InfluxDB({
-  url: config.url,
-  token: config.token
-});
-
-const writeApi = client.getWriteApi(config.org, config.bucket);
-const queryApi = client.getQueryApi(config.org);
-
-export { writeApi, queryApi, config }; 
+export function getConfig() {
+    if (!config) {
+        throw new Error('InfluxDB Client wurde noch nicht initialisiert');
+    }
+    return config.influxdb;
+}
