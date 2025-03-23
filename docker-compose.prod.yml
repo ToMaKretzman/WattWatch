@@ -46,12 +46,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      - VITE_INFLUXDB_URL=http://wattwatch-db:8086
-      - VITE_INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
-      - VITE_INFLUXDB_ORG=${INFLUXDB_ORG}
-      - VITE_INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
-      - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
+      args:
+        - VITE_INFLUXDB_URL=http://wattwatch-db:8086
+        - VITE_INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+        - VITE_INFLUXDB_ORG=${INFLUXDB_ORG}
+        - VITE_INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
+        - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
     ports:
       - "27654:80"
     depends_on:
