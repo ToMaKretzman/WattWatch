@@ -1,6 +1,6 @@
 import { Point, InfluxDB } from '@influxdata/influxdb-client';
 import type { OCRResult } from './openai';
-import { bucket, org } from './influxdbClient';
+import { config } from './influxdbClient';
 
 // In Docker wird die URL relativ zum nginx-Proxy sein
 const url = '/influxdb';
@@ -11,8 +11,8 @@ const client = new InfluxDB({
   token
 });
 
-const writeApi = client.getWriteApi(org, bucket);
-const queryApi = client.getQueryApi(org);
+const writeApi = client.getWriteApi(config.org, config.bucket);
+const queryApi = client.getQueryApi(config.org);
 
 // Hilfsfunktion zum Konvertieren deutscher Zahlen
 function parseGermanNumber(value: string): number {
@@ -59,7 +59,7 @@ export async function saveUtilityPrice(price: UtilityPrice): Promise<void> {
 
 export async function getLatestUtilityPrice(type: UtilityType): Promise<UtilityPrice | null> {
   try {
-    const query = `from(bucket: "${bucket}")
+    const query = `from(bucket: "${config.bucket}")
       |> range(start: -1y)
       |> filter(fn: (r) => r._measurement == "utility_price")
       |> filter(fn: (r) => r.type == "${type}")
@@ -111,9 +111,9 @@ export async function saveElectricityPrice(price: ElectricityPrice): Promise<voi
 }
 
 export async function getLatestElectricityPrice(): Promise<ElectricityPrice | null> {
-  const queryApi = client.getQueryApi(org);
+  const queryApi = client.getQueryApi(config.org);
   const query = `
-    from(bucket: "${bucket}")
+    from(bucket: "${config.bucket}")
       |> range(start: -365d)
       |> filter(fn: (r) => r["_measurement"] == "electricity_price")
       |> last()
@@ -142,8 +142,8 @@ export async function saveReading(result: OCRResult): Promise<void> {
     console.log('Versuche Daten in InfluxDB zu speichern:', {
       url,
       token: token ? 'Vorhanden' : 'Fehlt',
-      org,
-      bucket
+      org: config.org,
+      bucket: config.bucket
     });
 
     // Konvertiere den String-Wert in eine Zahl mit Nachkommastellen
@@ -195,9 +195,9 @@ interface ReadingResult {
 }
 
 export async function getLatestReading(): Promise<ReadingResult | null> {
-  const queryApi = client.getQueryApi(org);
+  const queryApi = client.getQueryApi(config.org);
   const query = `
-    from(bucket: "${bucket}")
+    from(bucket: "${config.bucket}")
       |> range(start: -365d)
       |> filter(fn: (r) => r["_measurement"] == "meter_reading")
       |> filter(fn: (r) => r["_field"] == "value" or r["_field"] == "meter_number" or r["_field"] == "unit" or r["_field"] == "confidence")
