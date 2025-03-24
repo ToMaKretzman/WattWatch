@@ -49,6 +49,7 @@
     "vite": "^5.1.4",
     "@types/web-push": "^3.6.3",
     "@types/nodemailer": "^6.4.14",
-    "@tensorflow/tfjs-node-types": "^4.17.0"
+    "@tensorflow/tfjs-node-types": "^4.17.0",
+    "@types/tesseract.js": "^2.0.0"
   }
 }

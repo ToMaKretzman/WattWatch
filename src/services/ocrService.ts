@@ -1,5 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
 import * as Tesseract from 'tesseract.js';
+import { imagePreprocessingService } from './imagePreprocessingService';
 
 interface OCRResult {
   text: string;
@@ -13,11 +14,35 @@ interface OCRResult {
   };
 }
 
+interface MeterType {
+  id: string;
+  name: string;
+  description: string;
+  digitCount: number;
+  decimalPlaces: number;
+}
+
 class OCRService {
   private static instance: OCRService;
   private meterDetectionModel: tf.LayersModel | null = null;
   private worker: Tesseract.Worker | null = null;
   private isModelLoading: boolean = false;
+  private readonly meterTypes: MeterType[] = [
+    {
+      id: 'digital',
+      name: 'Digitaler Zähler',
+      description: 'Moderner digitaler Stromzähler',
+      digitCount: 6,
+      decimalPlaces: 1
+    },
+    {
+      id: 'analog',
+      name: 'Analoger Zähler',
+      description: 'Klassischer Ferraris-Zähler',
+      digitCount: 5,
+      decimalPlaces: 2
+    }
+  ];
 
   private constructor() {
     this.initializeWorker();
@@ -46,8 +71,8 @@ class OCRService {
 
     this.isModelLoading = true;
     try {
-      // TODO: Modell aus lokalem Speicher oder Server laden
-      this.meterDetectionModel = await tf.loadLayersModel('path/to/model.json');
+      const modelPath = process.env.OCR_MODEL_PATH || 'models/meter-detection/model.json';
+      this.meterDetectionModel = await tf.loadLayersModel(modelPath);
     } catch (error) {
       console.error('Fehler beim Laden des Zählererkennungsmodells:', error);
       throw error;
@@ -56,29 +81,31 @@ class OCRService {
     }
   }
 
-  public async detectMeterType(imageData: ImageData): Promise<string> {
+  public async detectMeterType(imageData: ImageData): Promise<MeterType> {
     await this.loadMeterDetectionModel();
     if (!this.meterDetectionModel) {
       throw new Error('Zählererkennungsmodell nicht geladen');
     }
 
     // Bildvorverarbeitung
-    const tensor = tf.browser.fromPixels(imageData)
-      .resizeBilinear([224, 224])
+    const processedImage = await imagePreprocessingService.preprocessImage(imageData, {
+      resize: { width: 224, height: 224 },
+      normalize: true
+    });
+
+    const tensor = tf.browser.fromPixels(processedImage)
       .expandDims(0)
-      .toFloat()
-      .div(255.0);
+      .toFloat();
 
     // Zählertyp erkennen
     const prediction = this.meterDetectionModel.predict(tensor) as tf.Tensor;
-    const meterType = await prediction.argMax(1).data();
+    const meterTypeIndex = await prediction.argMax(1).data();
 
     // Aufräumen
     tensor.dispose();
     prediction.dispose();
 
-    // TODO: Mapping von Zahlen zu Zählertypen implementieren
-    return `Zählertyp ${meterType[0]}`;
+    return this.meterTypes[meterTypeIndex[0]] || this.meterTypes[0];
   }
 
   public async findMeterInImage(imageData: ImageData): Promise<{
@@ -87,12 +114,10 @@ class OCRService {
     width: number;
     height: number;
   } | null> {
-    await this.loadMeterDetectionModel();
-    if (!this.meterDetectionModel) {
-      throw new Error('Zählererkennungsmodell nicht geladen');
-    }
-
-    // TODO: Implementierung der Zählererkennung im Bild
+    // Kantenerkennung für bessere Zählererkennung
+    const edgeImage = await imagePreprocessingService.detectEdges(imageData);
+    
+    // TODO: Implementierung der Zählererkennung basierend auf Kantenerkennung
     // Dies würde ein speziell trainiertes Modell für Objekterkennung erfordern
 
     return null;
@@ -108,26 +133,59 @@ class OCRService {
     }
 
     try {
-      // Zählerposition im Bild finden (optional)
+      // Zählertyp erkennen falls nicht angegeben
+      const detectedMeterType = meterType ? 
+        this.meterTypes.find(m => m.id === meterType) : 
+        await this.detectMeterType(imageData);
+
+      // Zählerposition im Bild finden
       const meterPosition = await this.findMeterInImage(imageData);
       
+      // Bild vorverarbeiten
+      const processedImage = await imagePreprocessingService.enhanceMeterDisplay(imageData);
+      
       // OCR durchführen
-      const result = await this.worker.recognize(imageData);
+      const result = await this.worker.recognize(processedImage);
 
       // Ergebnis verarbeiten und validieren
-      const text = result.data.text.replace(/[^\d,\.]/g, '');
+      const text = this.validateAndFormatReading(
+        result.data.text,
+        detectedMeterType || this.meterTypes[0]
+      );
       const confidence = result.data.confidence;
 
       return {
         text,
         confidence,
-        meterType,
+        meterType: detectedMeterType?.id,
         boundingBox: meterPosition || undefined,
       };
     } catch (error) {
       console.error('Fehler bei der Texterkennung:', error);
       throw error;
     }
+  }
+
+  private validateAndFormatReading(text: string, meterType: MeterType): string {
+    // Entferne alle nicht-numerischen Zeichen außer Komma und Punkt
+    let cleaned = text.replace(/[^\d,\.]/g, '');
+    
+    // Konvertiere zu einem Array von Ziffern
+    const digits = cleaned.replace(/[,\.]/g, '').split('');
+    
+    // Prüfe ob die Anzahl der Ziffern zur erwarteten Anzahl passt
+    if (digits.length > meterType.digitCount) {
+      digits.splice(meterType.digitCount);
+    } else while (digits.length < meterType.digitCount) {
+      digits.unshift('0');
+    }
+    
+    // Füge Dezimalstellen hinzu
+    if (meterType.decimalPlaces > 0) {
+      digits.splice(-meterType.decimalPlaces, 0, ',');
+    }
+    
+    return digits.join('');
   }
 
   public async trainModel(trainingData: Array<{
