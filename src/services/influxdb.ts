@@ -239,7 +239,8 @@ export async function getAllLatestReadings(): Promise<ReadingResult[]> {
       |> filter(fn: (r) => r["_field"] == "value" or r["_field"] == "meter_number" or r["_field"] == "unit" or r["_field"] == "confidence")
       |> group(columns: ["meter_number"])
       |> last()
-      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> pivot(rowKey:["_time", "meter_number"], columnKey: ["_field"], valueColumn: "_value")
+      |> group()
   `;
 
   try {
@@ -249,8 +250,8 @@ export async function getAllLatestReadings(): Promise<ReadingResult[]> {
     return results.map(result => ({
       value: typeof result.value === 'string' ? parseFloat(result.value) : result.value,
       meter_number: result.meter_number,
-      unit: result.unit,
-      confidence: result.confidence,
+      unit: result.unit || 'kWh', // Fallback für ältere Einträge
+      confidence: result.confidence || 1.0, // Fallback für ältere Einträge
       time: result._time,
       _time: result._time
     }));
