@@ -10,48 +10,72 @@ import {
   Chip,
   Button,
   Dialog,
-  IconButton
+  IconButton,
+  Stack
 } from '@mui/material';
 import { 
   ElectricMeter as MeterIcon,
   AccessTime as TimeIcon,
   Speed as AccuracyIcon,
   CameraAlt as CameraIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  ElectricBolt as ElectricityIcon,
+  LocalDrink as WaterIcon,
+  LocalFireDepartment as GasIcon
 } from '@mui/icons-material';
-import { getLatestReading, saveReading } from '../../services/influxdb';
+import { getAllLatestReadings, saveReading, type ReadingResult } from '../../services/influxdb';
 import { WebcamCapture } from '../Camera/WebcamCapture';
 import { performOCR } from '../../services/openai';
+
+const getUtilityIcon = (unit: string) => {
+  switch (unit.toLowerCase()) {
+    case 'kwh':
+      return <ElectricityIcon />;
+    case 'm³':
+      return <WaterIcon />;
+    case 'm3':
+      return <WaterIcon />;
+    default:
+      return <MeterIcon />;
+  }
+};
+
+const getUtilityName = (unit: string) => {
+  switch (unit.toLowerCase()) {
+    case 'kwh':
+      return 'Stromzähler';
+    case 'm³':
+      return 'Wasserzähler';
+    case 'm3':
+      return 'Wasserzähler';
+    default:
+      return 'Zähler';
+  }
+};
 
 export default function MeterReading() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reading, setReading] = useState<{
-    value: number;
-    meter_number: string;
-    unit: string;
-    confidence: number;
-    time: string;
-  } | null>(null);
+  const [readings, setReadings] = useState<ReadingResult[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const fetchLatestReading = async () => {
+  const fetchLatestReadings = async () => {
     setLoading(true);
     try {
-      const result = await getLatestReading();
-      setReading(result);
+      const results = await getAllLatestReadings();
+      setReadings(results);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fehler beim Laden der Daten');
-      setReading(null);
+      setReadings([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLatestReading();
+    fetchLatestReadings();
   }, []);
 
   const handleCapture = async (imageData: string) => {
@@ -61,11 +85,8 @@ export default function MeterReading() {
       const ocrResult = await performOCR(imageData);
       console.log('OCR Ergebnis:', ocrResult);
       
-      // Speichere das Ergebnis in InfluxDB
       await saveReading(ocrResult);
-      
-      // Aktualisiere die Anzeige
-      await fetchLatestReading();
+      await fetchLatestReadings();
       
       setIsDialogOpen(false);
     } catch (err) {
@@ -85,7 +106,7 @@ export default function MeterReading() {
   return (
     <Box sx={{ 
       p: 2,
-      maxWidth: '600px',
+      maxWidth: '1200px',
       margin: '0 auto'
     }}>
       {loading && (
@@ -108,7 +129,7 @@ export default function MeterReading() {
         </Paper>
       )}
 
-      <Grid container spacing={2}>
+      <Grid container spacing={3}>
         <Grid item xs={12}>
           <Card elevation={3}>
             <CardContent>
@@ -123,7 +144,6 @@ export default function MeterReading() {
                 fullWidth
                 size="large"
                 startIcon={<CameraIcon />}
-                sx={{ mb: 2 }}
                 onClick={() => setIsDialogOpen(true)}
               >
                 Aufnehmen
@@ -132,50 +152,55 @@ export default function MeterReading() {
           </Card>
         </Grid>
 
-        {reading && (
+        {readings.length > 0 && (
           <Grid item xs={12}>
-            <Card elevation={3}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <MeterIcon sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="h5" component="div">
-                    Letzte Messung
-                  </Typography>
-                </Box>
+            <Typography variant="h5" sx={{ mb: 2 }}>
+              Letzte Messungen
+            </Typography>
+            <Grid container spacing={3}>
+              {readings.map((reading, index) => (
+                <Grid item xs={12} md={6} lg={4} key={reading.meter_number}>
+                  <Card elevation={3}>
+                    <CardContent>
+                      <Stack spacing={2}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          {getUtilityIcon(reading.unit)}
+                          <Typography variant="h6" sx={{ ml: 1 }}>
+                            {getUtilityName(reading.unit)}
+                          </Typography>
+                        </Box>
 
-                <Typography variant="h3" sx={{ textAlign: 'center', my: 3, color: 'primary.main' }}>
-                  {reading.value.toFixed(2)} {reading.unit}
-                </Typography>
+                        <Typography variant="h4" sx={{ textAlign: 'center', color: 'primary.main' }}>
+                          {reading.value.toFixed(2)} {reading.unit}
+                        </Typography>
 
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Chip
-                      icon={<MeterIcon />}
-                      label={`Zähler: ${reading.meter_number}`}
-                      variant="outlined"
-                      sx={{ width: '100%' }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Chip
-                      icon={<AccuracyIcon />}
-                      label={`Genauigkeit: ${(reading.confidence * 100).toFixed(1)}%`}
-                      variant="outlined"
-                      color={reading.confidence > 0.8 ? 'success' : 'warning'}
-                      sx={{ width: '100%' }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Chip
-                      icon={<TimeIcon />}
-                      label={`Erfasst: ${new Date(reading.time).toLocaleString()}`}
-                      variant="outlined"
-                      sx={{ width: '100%' }}
-                    />
-                  </Grid>
+                        <Chip
+                          icon={<MeterIcon />}
+                          label={`Zähler: ${reading.meter_number}`}
+                          variant="outlined"
+                          sx={{ width: '100%' }}
+                        />
+
+                        <Chip
+                          icon={<AccuracyIcon />}
+                          label={`Genauigkeit: ${(reading.confidence * 100).toFixed(1)}%`}
+                          variant="outlined"
+                          color={reading.confidence > 0.8 ? 'success' : 'warning'}
+                          sx={{ width: '100%' }}
+                        />
+
+                        <Chip
+                          icon={<TimeIcon />}
+                          label={`Erfasst: ${new Date(reading.time).toLocaleString()}`}
+                          variant="outlined"
+                          sx={{ width: '100%' }}
+                        />
+                      </Stack>
+                    </CardContent>
+                  </Card>
                 </Grid>
-              </CardContent>
-            </Card>
+              ))}
+            </Grid>
           </Grid>
         )}
       </Grid>

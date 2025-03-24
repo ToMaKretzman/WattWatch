@@ -185,7 +185,7 @@ export async function saveReading(result: OCRResult): Promise<void> {
   }
 }
 
-interface ReadingResult {
+export interface ReadingResult {
   value: number;
   meter_number: string;
   unit: string;
@@ -227,5 +227,35 @@ export async function getLatestReading(): Promise<ReadingResult | null> {
   } catch (error) {
     console.error('Fehler beim Abrufen des letzten Zählerstands:', error);
     throw error; // Fehler weiterwerfen statt null zurückzugeben
+  }
+}
+
+export async function getAllLatestReadings(): Promise<ReadingResult[]> {
+  const queryApi = client.getQueryApi(config.org);
+  const query = `
+    from(bucket: "${config.bucket}")
+      |> range(start: -365d)
+      |> filter(fn: (r) => r["_measurement"] == "meter_reading")
+      |> filter(fn: (r) => r["_field"] == "value" or r["_field"] == "meter_number" or r["_field"] == "unit" or r["_field"] == "confidence")
+      |> group(columns: ["meter_number"])
+      |> last()
+      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+  `;
+
+  try {
+    const results = await queryApi.collectRows<ReadingResult>(query);
+    console.log('Alle letzten Messungen:', results);
+    
+    return results.map(result => ({
+      value: typeof result.value === 'string' ? parseFloat(result.value) : result.value,
+      meter_number: result.meter_number,
+      unit: result.unit,
+      confidence: result.confidence,
+      time: result._time,
+      _time: result._time
+    }));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der letzten Zählerstände:', error);
+    throw error;
   }
 } 
