@@ -24,7 +24,12 @@
     "http-proxy-middleware": "^3.0.0-beta.1",
     "openai": "^4.89.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "web-push": "^3.6.7",
+    "nodemailer": "^6.9.9",
+    "@tensorflow/tfjs": "^4.17.0",
+    "@tensorflow/tfjs-node": "^4.17.0",
+    "tesseract.js": "^5.0.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -41,6 +46,9 @@
     "eslint-plugin-react-refresh": "^0.4.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
-    "vite": "^5.1.4"
+    "vite": "^5.1.4",
+    "@types/web-push": "^3.6.3",
+    "@types/nodemailer": "^6.4.14",
+    "@tensorflow/tfjs-node-types": "^4.17.0"
   }
 }
