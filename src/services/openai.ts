@@ -23,10 +23,10 @@ export interface OCRResult {
   additional_info: OCRValue<string>;
 }
 
-const SYSTEM_PROMPT = "Du bist ein OCR-Experte für Stromzähler.";
+const SYSTEM_PROMPT = "Du bist ein OCR-Experte für Strom-, Wasser- und Gaszähler.";
 const USER_PROMPT = `
-Du bist ein OCR-Experte und spezialisiert auf die präzise Erkennung von Stromzählerständen. 
-Deine Aufgabe ist es, eindeutige und strukturierte Informationen aus einem Bild eines Stromzählers zu extrahieren. 
+Du bist ein OCR-Experte und spezialisiert auf die präzise Erkennung von Zählerständen. 
+Deine Aufgabe ist es, eindeutige und strukturierte Informationen aus einem Bild eines Zählers zu extrahieren. 
 Die Daten sollen im JSON-Format ausgegeben werden.
 
 Extrahiere die folgenden Informationen so präzise wie möglich:

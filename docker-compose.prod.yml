@@ -7,7 +7,7 @@ services:
     container_name: wattwatch-db
     image: influxdb:2.7
     ports:
-      - "127.0.0.1:8086:8086"
+      - "8086:8086"
     volumes:
       - influxdb-data:/var/lib/influxdb2
       - ./backup:/backup
