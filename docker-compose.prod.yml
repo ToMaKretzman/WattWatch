@@ -7,7 +7,7 @@ services:
     container_name: wattwatch-db
     image: influxdb:2.7
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     volumes:
       - influxdb-data:/var/lib/influxdb2
       - ./backup:/backup
@@ -81,6 +81,42 @@ services:
       - dockge.icon=react
       - dockge.service.port.80=Frontend
 
+  wattwatch-grafana:
+    container_name: wattwatch-grafana
+    image: grafana/grafana:latest
+    ports:
+      - "27655:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:27655
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - wattwatch-net
+    depends_on:
+      - wattwatch-db
+    labels:
+      - dockge.description=Grafana für WattWatch Visualisierung
+      - dockge.icon=grafana
+      - dockge.service.port.3000=Grafana UI
+
 networks:
   wattwatch-net:
     name: wattwatch-net
@@ -88,4 +124,7 @@ networks:
 volumes:
   influxdb-data:
     name: wattwatch-influxdb-data
+    driver: local
+  grafana-data:
+    name: wattwatch-grafana-data
     driver: local 
