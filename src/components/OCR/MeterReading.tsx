@@ -64,9 +64,11 @@ export default function MeterReading() {
     setLoading(true);
     try {
       const results = await getAllLatestReadings();
+      console.log('Empfangene Zählerstände:', results);
       setReadings(results);
       setError(null);
     } catch (err) {
+      console.error('Fehler beim Laden der Zählerstände:', err);
       setError(err instanceof Error ? err.message : 'Fehler beim Laden der Daten');
       setReadings([]);
     } finally {

@@ -233,14 +233,18 @@ export async function getLatestReading(): Promise<ReadingResult | null> {
 export async function getAllLatestReadings(): Promise<ReadingResult[]> {
   const queryApi = client.getQueryApi(config.org);
   const query = `
-    from(bucket: "${config.bucket}")
+    import "influxdata/influxdb/v1"
+
+    latestByMeter = from(bucket: "${config.bucket}")
       |> range(start: -365d)
       |> filter(fn: (r) => r["_measurement"] == "meter_reading")
       |> filter(fn: (r) => r["_field"] == "value" or r["_field"] == "meter_number" or r["_field"] == "unit" or r["_field"] == "confidence")
       |> group(columns: ["meter_number"])
-      |> last()
-      |> pivot(rowKey:["_time", "meter_number"], columnKey: ["_field"], valueColumn: "_value")
-      |> group()
+      |> sort(columns: ["_time"], desc: true)
+      |> limit(n: 1)
+      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+
+    latestByMeter
   `;
 
   try {
